@@ -1,8 +1,9 @@
-// Memoria temporal en el servidor
-let memoriaRadar = [];
+// Memoria temporal del servidor
+export let memoriaPreMarket = [];
+export let memoriaRadar = [];
 
 export default function handler(req, res) {
-    // Configuración de seguridad (CORS) para permitir que la extensión lea los datos
+    // Permisos de seguridad CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -12,31 +13,32 @@ export default function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-        const tvData = req.body;
+        // Atrapamos el JSON que envía TradingView
+        const payload = req.body;
         
-        // Aquí Vercel traduce el dato crudo de TradingView al análisis institucional
-        const nuevaAlerta = {
-            activo: tvData.activo || "Desconocido",
-            sesion: tvData.sesion || "Activa",
-            ventanaHoraria: new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York' }) + " EST",
-            proyeccion: "Gatillo de ejecución inminente",
-            contexto: tvData.contexto || "Convergencia de zonas detectada.",
-            estructura: tvData.estructura || "Patrón detectado",
-            emas: tvData.emas || "Rompimiento confirmado",
-            rvol: "Calculando...", // En la Fase 2 conectaremos esto a una API de volumen
-            distanciaLiquidez: "Pendiente",
-            filtroMacro: "Monitoreo Activo",
-            recomendacion: tvData.direccion === "LONG" ? "Buscar compras al retroceso." : "Buscar ventas direccionales."
-        };
-
-        // Guardamos la alerta en la primera posición
-        memoriaRadar.unshift(nuevaAlerta);
+        // 1. Si es una alerta de Pre-Market (la que acabamos de crear)
+        if (payload.tipo === "premarket") {
+            // Buscamos si el activo ya existe en la memoria para actualizarlo (no duplicarlo)
+            const index = memoriaPreMarket.findIndex(item => item.activo === payload.activo);
+            
+            if (index !== -1) {
+                memoriaPreMarket[index] = payload; // Actualiza el existente
+            } else {
+                memoriaPreMarket.push(payload); // Agrega uno nuevo
+            }
+            
+            console.log(`NostraFX: Pre-Market actualizado -> ${payload.activo}`);
+            return res.status(200).json({ status: "success", message: "Pre-Market actualizado" });
+        } 
         
-        // Mantenemos solo las últimas 5 alertas para no saturar el widget
-        if (memoriaRadar.length > 5) memoriaRadar.pop();
-
-        console.log("Alerta recibida desde TradingView:", nuevaAlerta.activo);
-        return res.status(200).json({ status: "success", message: "Alerta registrada en Vercel" });
+        // 2. Si es una alerta de Radar (Ejecución rápida intradía - Fase 2)
+        else {
+            memoriaRadar.unshift(payload);
+            if (memoriaRadar.length > 5) memoriaRadar.pop(); // Mantiene solo los últimos 5 gatillos
+            
+            console.log(`NostraFX: Radar actualizado -> ${payload.activo}`);
+            return res.status(200).json({ status: "success", message: "Radar actualizado" });
+        }
     }
 
     return res.status(405).json({ error: "Método no permitido" });
