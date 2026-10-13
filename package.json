@@ -1,0 +1,10 @@
+{
+  "name": "nostrafx-backend",
+  "version": "1.0.0",
+  "description": "Motor analítico e integrador de TradingView para NostraFX",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {}
+}
